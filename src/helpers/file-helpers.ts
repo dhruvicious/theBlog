@@ -9,7 +9,7 @@ export interface BlogPost {
   publishedOn: string; // or Date if you parse it as a date
 }
 
-export async function getBlogPostList() {
+export async function getBlogPostList() : Promise<BlogPost[]>{
   const fileNames = await readDirectory('/content');
 
   const blogPosts = [];
@@ -21,7 +21,9 @@ export async function getBlogPostList() {
 
     blogPosts.push({
       slug: fileName.replace('.mdx', ''),
-      ...frontmatter,
+      title: frontmatter.title,
+      abstract: frontmatter.abstract,
+      publishedOn: frontmatter.publishedOn,
     });
   }
 
