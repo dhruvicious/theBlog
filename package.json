@@ -16,7 +16,7 @@
     "gray-matter": "^4.0.3",
     "gsap": "^3.13.0",
     "js-cookie": "^3.0.5",
-    "next": "15.5.5",
+    "next": "^15.5.7",
     "next-mdx-remote": "^5.0.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
