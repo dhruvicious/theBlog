@@ -114,9 +114,10 @@ console.log(
 - **props:** This object contains all properties passed to the element. Children are normalized and embedded under the children key. Every single child is stored directly, while multiple children are stored as an array.
 
 **Following are not stable across react versions or build modes**
+
 - **_owner:** This internal field tracks which component created the element. It is used for warning messages and debugging.
 
--**_store:** This internal bookkeeping object is used only in development mode to track validation state. It does not exist in production builds. Even though tightly coupled to React’s internal validation and warning systems it should not be relied upon, inspected, or assumed present.
+- **_store:** This internal bookkeeping object is used only in development mode to track validation state. It does not exist in production builds. Even though tightly coupled to React’s internal validation and warning systems it should not be relied upon, inspected, or assumed present.
 
 
 ## Uni-directional Data-flow and it's mechanisms in React
