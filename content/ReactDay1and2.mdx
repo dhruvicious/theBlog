@@ -1,0 +1,202 @@
+---
+title: 'Day 1 and 2 of 30 Days React '
+abstract: This document presents a concise conceptual foundation for React by defining its core terminology and execution model before introducing implementation or architectural patterns. It focuses on establishing accurate mental models around React’s declarative nature, rendering and reconciliation process, unidirectional data flow, and the relationship between JSX, React elements, and JavaScript. The goal is to reduce initial cognitive overhead and align understanding with the principles reflected in official React documentation.
+publishedOn: '2026-01-13T12:00:00-0400'
+---
+
+## Introduction
+This directory contains all the material from Day 1 and 2 of my 30 Days React Challenge. The agenda for the two days was to establish a working understanding of React by focusing on its core definitions and what they translate to in code. When first encountering React, a substantial amount of terminology is introduced all at once, which I found to be cognitively overwhelming and difficult to contextualize in terms of JavaScript code. Gaining familiarity with this vocabulary is a necessary prerequisite before engaging with implementation or architectural patterns.
+The sole purpose of documenting these basic definitions is to create a stable conceptual baseline and to align my thinking with the style and structure commonly found in official documentations.
+
+## Defs:
+
+- **React:** React is an open-source library developed by Meta for building user interfaces through a declarative, component-based programming model, where the UI is expressed as a function of application state rather than as a sequence of imperative DOM manipulation.
+
+- **Component:** A component is a reusable, isolated unit of UI logic that encapsulates structure, behaviour and presentation, typically expressed as a javascript function that returns a description of the UI in JSX or in the form of React.createElement nested functional calls. Components form the fundamental abstraction layer in React's architecture.
+
+- **JSX(Javascript XML):** JSX is a syntax extension to javascript that allows UI elements to be written using XML like tags, which are transpiled into React.createElement() functional calls, producing plain javascript objects that describe the intended UI structure.
+
+- **Virtual DOM:** The virtual DOM is an in memory representation of the UI tree composed of lightweight JavaScript objects, which React uses to efficiently determine how the real DOM should change by comparing successive render outputs.(While incorrect in canonical terms the above definition would suffice for current discussion.)
+
+- **Reconciliation:** It is the algorithmic process by which React compares the previous Virtual DOM tree with the newly generated DOM tree after a state or prop change, determines the minimal set of differences (performs heuristic, priority-aware updates that are good enough rather than optimal), and schedules updates to the real DOM accordingly. Diffing and scheduling are decoupled under the current React Fiber architecture.
+
+- **Render:** Rendering is the process by which a React component is executed to produce a Virtual DOM representation, based purely on its current props, state, and context, without directly mutating the real DOM.
+
+- **Commit Phase:** The commit phase is the stage following reconciliation in which React applies the computed changes to the real DOM and runs lifecycle effects that require DOM access, such as layout effects and ref assignments.
+
+- **Props(Properties):** Props are immutable inputs passed from a parent to component to a child component used to parameterize component behaviour and appearance while preserving unidirectional data flow.
+
+- **State:** State is a mutable, component local data managed by React that represents information which may change over time and trigger a re-render when updated.
+
+- **Hook:** A Hook is a special function provided by React that enables functional components to access stateful logic, lifecycle behavior, and side-effect management without using class components.
+
+
+## Understanding the JSX Syntax
+
+**Def:** JSX is a compile-time syntactical extension that translates XML markup like declarations of UI into explicit API calls to React.createElement. It introduces no new runtime semantics and does not partake in rendering logic.
+
+### JSX as a Deterministic Transformation into React.createElement
+
+The claim that JSX is syntactic sugar can be verified concretely by observing the application bootstrap logic. In script.js, the component hierarchy is assembled manually:
+
+
+```javascript
+createRoot(document.getElementById("root")).render(
+    React.createElement(
+        BrowserRouter,
+        null,
+        React.createElement(
+            StrictMode,
+            null,
+            React.createElement(App, null)
+        )
+    )
+);
+```
+
+This structure corresponds exactly to the JSX expression:
+
+```javascript
+<BrowserRouter>
+    <StrictMode>
+        <App />
+    </StrictMode>
+</BrowserRouter>
+```
+
+Each JSX tag is transformed into a React.createElement invocation where the **first argument denotes the element type**, **the second argument represents props**, and **the remaining arguments encode children** there can be as many children as needed each having their own createElement calls. The absence of JSX here exposes the fact that React internally operates only on JavaScript objects and function calls.
+
+```javascript
+React.createElement(
+    type,        // string | function | class
+    props,       // object | null
+    ...children  // ReactNode (variadic)
+)
+```
+children are normalized (strings, numbers, arrays, booleans filtered) before reconciliation
+
+## React elements are immutable descriptors
+
+**Def:** A React element is an immutable (by convention and internal expectations not enforced by javascript) object describing what the React's internal UI representation should look like at a given point in time. It is not a DOM node and contains no rendering logic.
+
+
+```javascript
+console.log(
+  React.createElement("div", { id: "root" }, "Hello")
+);
+
+```
+**Output:**
+```
+{
+  $$typeof: Symbol(react.element),
+  type: "div",        // ƒ MyComponent(props), if a functional component is used.
+  key: null,
+  ref: null,
+  props: {
+    id: "root",
+    children: "Hello"
+  },
+  _owner: null,
+  _store: { validated: false }
+}
+```
+
+**Defs:**
+- **$$typeof:** This field is a symbol whose value is Symbol(react.element). It is React's internal tag used to reliably identify an object as a React element. This is how react differentiates valid elements from arbitrary objects during reconciliation.
+
+- **type:** For host elements, this is a string such as "div", "span", or "button". If a functional component were used instead, this field would contain a function reference, not a string.
+
+- **key:** This field is null unless explicitly provided. It exists exclusively to assist React's diffing algorithm when elements are part of a list, has to effect outside reconciliation.
+
+- **ref:** This field is null unless a ref is supplied. It is stored on the element itself but only acted upon during the commit phase of rendering
+
+- **props:** This object contains all properties passed to the element. Children are normalized and embedded under the children key. Every single child is stored directly, while multiple children are stored as an array.
+
+**Following are not stable across react versions or build modes**
+- **_owner:** This internal field tracks which component created the element. It is used for warning messages and debugging.
+
+-**_store:** This internal bookkeeping object is used only in development mode to track validation state. It does not exist in production builds. Even though tightly coupled to React’s internal validation and warning systems it should not be relied upon, inspected, or assumed present.
+
+
+## Uni-directional Data-flow and it's mechanisms in React
+
+A React application is structured as a tree of components where each component may render other components as it's childrens. This strcutural heirarchy directly determines data ownership. A component that defines a piece of state is said to own that data. 
+Ownership implies exclusive authority to mutate the data and responsibility for propagating it's current value downwards, child components exist strictly as consumers of data provided by their ancestors and do not posses means to mutate the states owned by it's parents unless explicitly provided with means to do so.
+
+### Parent-to-Child Data-flow
+**Def:** Parent to Child data flow refers to the process by which a parent React component supplied data to it's children nodes during the rendering process. This flow is purely declarative.
+The critical property of this flow is that no explicit messaging or subscription mechanism is involved. Whenever the parent re-renders, the child is re-invoked with the latest data snapshot.
+
+```javascript
+function Parent(){
+    const count = 5;
+    return (<Child value={count}/>);
+}
+
+function Child(prop){
+    return <p>{prop.value}</p>
+}
+```
+
+In the above example, parent owns the value count. The child component has no knowledge of where the value originates, nor any ability to modify/mutate it unless explicitly provided a mechanism usually in the form of setter function to change the value.
+
+State can be passed as props that may be consumed by children in their render logic. Once the state is updated the re-render calls the children components with updated props value causing then to inturn re-render.
+
+```javascript
+function Counter(){
+    const [count, setCount] = useState(0);
+
+    return <Display value={count}/>;
+}
+
+function Display({value}){
+    return <span>{value}</span>;
+}
+```
+
+Here, Counter owns the state count. Updating this state does not directly modify the DOM. Instead, it causes Counter to re-execute, which in turn causes Display to receive a new value prop. The apparent “data movement” is therefore a consequence of re-rendering, not mutation.
+
+```javascript
+function Parent(){
+    const [value, setValue] = useState(0);
+    
+    function incr(){
+        setValue(prev=>prev+1);
+    }
+    return <Child {...{value, incr}} />
+}
+
+function Child({value, incr}){
+    return (
+        <>
+            <div>{value}</div>
+            <button onClick={incr}>+</button>
+        </>
+    )
+}
+
+```
+The child does not modify the parent’s state directly. It merely invokes a function. The direction of data flow remains unchanged: state lives in the parent, and updated data flows downward after re-rendering.
+
+### React's Context API
+When data must be comsumed by deeply nested components while inbetween components have no use for that data it still must be passed to them for comsumption at the final consumer component in the traditional data flow of react, to avoid this prop drilling to reach the final component that finally consumes the data React provided the context API.
+
+```javascript
+const ThemeContext = React.createContext("light");
+
+function App(){
+    return (
+        <ThemeContext.Provider value="dark">
+            <ToolBar />
+        </ThemeContext.Provider>
+    )
+}
+
+function ToolBar(){
+    const theme = React.useContext(ThemeContext);
+    return <div>{theme}</div>
+}
+
+```
+Context should be understood as an ergonomic optimization for prop drilling, not as a fundamentally different data flow model. It shall be noted that any context value change invalidates all consuming descendants, regardless of depth.
